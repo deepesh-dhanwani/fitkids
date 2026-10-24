@@ -1,0 +1,352 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String         @id @default(cuid())
+  name           String
+  email          String         @unique
+  hashedPassword String
+  role           String         @default("HR") // SUPER_ADMIN, ADMIN, HR, ACCOUNTS
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  enquiries      Enquiry[]      @relation("AssignedTo")
+  notifications  Notification[]
+  activityLogs   ActivityLog[]
+  blogPosts      BlogPost[]
+}
+
+model School {
+  id             String        @id @default(cuid())
+  name           String
+  principalName  String
+  phone          String
+  email          String
+  city           String
+  state          String        @default("Rajasthan")
+  board          String
+  address        String
+  gstNumber      String        @default("")
+  feePerPTI      Float
+  contractStart  DateTime?
+  contractEnd    DateTime?
+  status         String        @default("ACTIVE") // ACTIVE, INACTIVE, PROSPECT
+  logoUrl        String        @default("")
+  notes          String        @default("")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  placements     Placement[]
+  invoices       Invoice[]
+  attendance     Attendance[]
+  documents      Document[]    @relation("SchoolDocuments")
+  agreements     Agreement[]   @relation("SchoolAgreements")
+  enquiries      Enquiry[]
+}
+
+model PTI {
+  id                 String         @id @default(cuid())
+  name               String
+  phone              String
+  email              String
+  dateOfBirth        DateTime?
+  qualification      String         // DPED, BPED, MPED, OTHER
+  experience         Int            @default(0)
+  sportsAchievements String         @default("")
+  preferredCity      String
+  expectedSalary     Float
+  currentSalary      Float          @default(0)
+  employmentStatus   String         @default("ACTIVE") // ACTIVE, INACTIVE, ON_LEAVE, TERMINATED
+  photoUrl           String         @default("")
+  address            String         @default("")
+  bankName           String         @default("")
+  accountNumber      String         @default("")
+  ifscCode           String         @default("")
+  pfNumber           String         @default("")
+  esiNumber          String         @default("")
+  policeVerified     Boolean        @default(false)
+  medicalFitness     Boolean        @default(false)
+  performanceNotes   String         @default("")
+  aadhaarNumber      String         @default("")
+  panNumber          String         @default("")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  placements         Placement[]
+  attendance         Attendance[]
+  payrolls           Payroll[]
+  documents          Document[]     @relation("PTIDocuments")
+  agreements         Agreement[]    @relation("PTIAgreements")
+}
+
+model PTIApplication {
+  id                 String            @id @default(cuid())
+  applicationId      String            @unique
+  name               String
+  phone              String
+  email              String
+  dateOfBirth        DateTime?
+  qualification      String            // DPED, BPED, MPED, OTHER
+  experience         Int               @default(0)
+  sportsAchievements String            @default("")
+  preferredCity      String
+  expectedSalary     Float
+  address            String            @default("")
+  status             String            @default("PENDING") // PENDING, SHORTLISTED, INTERVIEWED, DEMO_SCHEDULED, APPROVED, REJECTED
+  rejectionReason    String            @default("")
+  interviewDate      DateTime?
+  demoDate           DateTime?
+  resumeUrl          String            @default("")
+  certificatesUrl    String            @default("")
+  aadhaarUrl         String            @default("")
+  photoUrl           String            @default("")
+  notes              String            @default("")
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+}
+
+model Enquiry {
+  id                String        @id @default(cuid())
+  schoolName        String
+  contactPerson     String
+  phone             String
+  email             String
+  city              String
+  board             String        @default("")
+  students          Int           @default(0)
+  ptisNeeded        Int           @default(1)
+  preferredStart    DateTime?
+  message           String        @default("")
+  status            String        @default("NEW") // NEW, CONTACTED, DEMO_SCHEDULED, PROPOSAL_SENT, WON, LOST
+  source            String        @default("Website")
+  notes             String        @default("")
+  followUpDate      DateTime?
+  assignedToId      String?
+  assignedTo        User?         @relation("AssignedTo", fields: [assignedToId], references: [id])
+  convertedSchoolId String?
+  convertedSchool   School?       @relation(fields: [convertedSchoolId], references: [id])
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+}
+
+model Placement {
+  id               String          @id @default(cuid())
+  ptiId            String
+  pti              PTI             @relation(fields: [ptiId], references: [id])
+  schoolId         String
+  school           School          @relation(fields: [schoolId], references: [id])
+  startDate        DateTime
+  endDate          DateTime?
+  salary           Float
+  schoolFee        Float
+  workingDays      Int             @default(26)
+  status           String          @default("ACTIVE") // ACTIVE, ENDED, ON_HOLD
+  replacementForId String?
+  notes            String          @default("")
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+}
+
+model Attendance {
+  id          String   @id @default(cuid())
+  ptiId       String
+  pti         PTI      @relation(fields: [ptiId], references: [id])
+  schoolId    String
+  school      School   @relation(fields: [schoolId], references: [id])
+  month       Int
+  year        Int
+  records     String   @default("{}") // JSON: {"2024-01-01": "PRESENT"}
+  presentDays Float    @default(0)
+  absentDays  Float    @default(0)
+  halfDays    Float    @default(0)
+  leaveDays   Float    @default(0)
+  approvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([ptiId, schoolId, month, year])
+}
+
+model Payroll {
+  id               String        @id @default(cuid())
+  ptiId            String
+  pti              PTI           @relation(fields: [ptiId], references: [id])
+  month            Int
+  year             Int
+  basicSalary      Float
+  presentDays      Float
+  workingDays      Int           @default(26)
+  absentDeduction  Float         @default(0)
+  bonus            Float         @default(0)
+  pfDeduction      Float         @default(0)
+  esiDeduction     Float         @default(0)
+  otherDeductions  Float         @default(0)
+  netSalary        Float
+  status           String        @default("PENDING") // PENDING, PAID
+  transactionRef   String        @default("")
+  payslipUrl       String        @default("")
+  paidAt           DateTime?
+  remarks          String        @default("")
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@unique([ptiId, month, year])
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  schoolId      String
+  school        School        @relation(fields: [schoolId], references: [id])
+  month         Int
+  year          Int
+  lineItems     String        @default("[]") // JSON
+  subtotal      Float
+  cgst          Float         @default(0)
+  sgst          Float         @default(0)
+  igst          Float         @default(0)
+  tds           Float         @default(0)
+  total         Float
+  status        String        @default("DRAFT") // DRAFT, SENT, PARTIALLY_PAID, PAID, OVERDUE
+  pdfUrl        String        @default("")
+  dueDate       DateTime?
+  payments      String        @default("[]") // JSON
+  notes         String        @default("")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Document {
+  id          String    @id @default(cuid())
+  entityType  String    // SCHOOL | PTI
+  entityId    String    @default("")
+  schoolId    String?
+  school      School?   @relation("SchoolDocuments", fields: [schoolId], references: [id])
+  ptiId       String?
+  pti         PTI?      @relation("PTIDocuments", fields: [ptiId], references: [id])
+  type        String    // resume, certificate, aadhaar, police_verification, medical, etc.
+  name        String
+  url         String
+  verified    Boolean   @default(false)
+  expiresAt   DateTime?
+  notes       String    @default("")
+  createdAt   DateTime  @default(now())
+}
+
+model Agreement {
+  id               String    @id @default(cuid())
+  entityType       String    // SCHOOL | PTI
+  entityId         String    @default("")
+  schoolId         String?
+  school           School?   @relation("SchoolAgreements", fields: [schoolId], references: [id])
+  ptiId            String?
+  pti              PTI?      @relation("PTIAgreements", fields: [ptiId], references: [id])
+  templateType     String    // service_agreement | appointment_letter
+  generatedPdfUrl  String    @default("")
+  signedPdfUrl     String    @default("")
+  signedAt         DateTime?
+  expiresAt        DateTime?
+  notes            String    @default("")
+  createdAt        DateTime  @default(now())
+}
+
+model GalleryItem {
+  id        String   @id @default(cuid())
+  url       String
+  type      String   @default("IMAGE") // IMAGE | VIDEO
+  title     String
+  category  String   @default("General")
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model BlogPost {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  content     String
+  excerpt     String    @default("")
+  category    String    @default("General")
+  coverUrl    String    @default("")
+  published   Boolean   @default(false)
+  authorId    String?
+  author      User?     @relation(fields: [authorId], references: [id])
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  schoolName  String
+  contactName String
+  designation String   @default("Principal")
+  text        String
+  rating      Int      @default(5)
+  photoUrl    String   @default("")
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+model FAQ {
+  id        String   @id @default(cuid())
+  question  String
+  answer    String
+  category  String   @default("General")
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model SchoolLogo {
+  id         String   @id @default(cuid())
+  schoolName String
+  logoUrl    String
+  order      Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+}
+
+model SiteSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  link      String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String   @default("")
+  before    String   @default("{}")
+  after     String   @default("{}")
+  ip        String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
